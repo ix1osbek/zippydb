@@ -1,17 +1,49 @@
 {
+  "name": "zippydb",
+  "version": "1.0.0",
+  "description": "High-performance, lightweight, and type-safe SQL query builder for Node.js",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
   "scripts": {
     "build": "tsc",
     "start:dev": "nodemon --watch 'src/**/*.ts' --exec 'ts-node' src/index.ts",
+    "prepublishOnly": "npm run build",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
+  "keywords": [
+    "orm",
+    "query-builder",
+    "sql",
+    "postgres",
+    "typescript",
+    "database"
+  ],
+  "author": "Sizning Ismingiz",
+  "license": "MIT",
   "dependencies": {
     "pg": "^8.17.2"
   },
   "devDependencies": {
-    "@types/node": "^25.1.0",
-    "@types/pg": "^8.16.0",
-    "nodemon": "^3.1.11",
+    "@types/node": "^22.0.0",
+    "@types/pg": "^8.11.0",
+    "nodemon": "^3.1.7",
     "ts-node": "^10.9.2",
-    "typescript": "^5.9.3"
-  }
+    "typescript": "^5.5.0"
+  },
+  "engines": {
+    "node": ">=16.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ix1osbek/zippydb.git"
+  },
+  "bugs": {
+    "url": "https://github.com/ix1osbek/zippydb/issues"
+  },
+  "homepage": "https://github.com/ix1osbek/zippydb#readme"
 }
