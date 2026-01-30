@@ -1,6 +1,6 @@
 {
   "name": "zippydb",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "High-performance, lightweight, and type-safe SQL query builder for Node.js",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
