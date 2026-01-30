@@ -5,18 +5,23 @@ export class Builder<
   T extends Record<string, unknown> = Record<string, unknown>,
 > {
   protected _table: string = "";
+  protected _columns: string[] = ["*"];
   protected _wheres: Array<{
     column: keyof T;
     operator: string;
     value: unknown;
   }> = [];
+  protected _orders: Array<{ column: keyof T; direction: "asc" | "desc" }> = [];
+  protected _limit: number | null = null;
+  protected _offset: number | null = null;
+  protected _distinct: boolean = false;
   protected _bindings: unknown[] = [];
   protected grammar = new Grammar();
 
   constructor(protected driver: IDriver) {}
 
   /**
-   * Jadval nomini belgilash va tipni zanjirga bog'lash
+   * Jadval nomini belgilash va yangi instance qaytarish
    */
   table<EntityType extends Record<string, unknown>>(
     name: string,
@@ -27,7 +32,23 @@ export class Builder<
   }
 
   /**
-   * WHERE sharti. Faqat T modelidagi ustun nomlarini qabul qiladi
+   * SELECT qilinadigan ustunlarni belgilash
+   */
+  select(...columns: (keyof T | "*")[]): this {
+    this._columns = columns as string[];
+    return this;
+  }
+
+  /**
+   * Dublikatlarni olib tashlash
+   */
+  distinct(): this {
+    this._distinct = true;
+    return this;
+  }
+
+  /**
+   * WHERE sharti
    */
   where(column: keyof T, operator: string, value: T[keyof T] | unknown): this {
     this._wheres.push({ column, operator, value });
@@ -36,26 +57,76 @@ export class Builder<
   }
 
   /**
-   *  (SELECT)
+   * Tartiblash (ORDER BY)
+   */
+  orderBy(column: keyof T, direction: "asc" | "desc" = "asc"): this {
+    this._orders.push({ column, direction });
+    return this;
+  }
+
+  /**
+   * Natijalar sonini cheklash (LIMIT)
+   */
+  limit(value: number): this {
+    this._limit = value;
+    return this;
+  }
+
+  /**
+   * Natijalarni tashlab o'tish (OFFSET)
+   */
+  offset(value: number): this {
+    this._offset = value;
+    return this;
+  }
+
+  /**
+   * Ma'lumotlarni olish (SELECT)
    */
   async get(): Promise<T[]> {
     this.validateTable();
-    const sql = this.grammar.compileSelect(this._table) + this.compileWheres();
+
+    // SQL generatorini ishga tushiramiz
+    let sql = this.grammar.compileSelect(this._table, this._columns);
+
+    if (this._distinct) sql = sql.replace("SELECT", "SELECT DISTINCT");
+
+    sql += this.compileWheres();
+    sql += this.compileOrders();
+
+    if (this._limit !== null) sql += ` LIMIT ${this._limit}`;
+    if (this._offset !== null) sql += ` OFFSET ${this._offset}`;
+
     const results = await this.driver.execute<T>(sql, this._bindings);
     this.reset();
     return results;
   }
 
   /**
-   * Faqat bitta qatorni olish
+   * Faqat birinchi qatorni olish
    */
   async first(): Promise<T | null> {
+    this.limit(1);
     const results = await this.get();
     return results.length > 0 ? results[0] : null;
   }
 
   /**
-   * (INSERT)
+   * Qatorlar sonini hisoblash
+   */
+  async count(): Promise<number> {
+    this.validateTable();
+    const sql = `SELECT COUNT(*) as count FROM ${this._table}${this.compileWheres()}`;
+    const result = await this.driver.execute<{ count: string }>(
+      sql,
+      this._bindings,
+    );
+    this.reset();
+    return parseInt(result[0].count, 10);
+  }
+
+  /**
+   * Yangi qator qo'shish (INSERT)
    */
   async create(data: Partial<T>): Promise<T> {
     this.validateTable();
@@ -69,7 +140,20 @@ export class Builder<
   }
 
   /**
-   *  (UPDATE)
+   * Bir nechta qator qo'shish (INSERT MANY)
+   */
+  async createMany(data: Partial<T>[]): Promise<T[]> {
+    this.validateTable();
+    // Sodda implementatsiya: har birini alohida qo'shish yoki Grammar'ga createMany qo'shish kerak
+    const results: T[] = [];
+    for (const item of data) {
+      results.push(await this.create(item));
+    }
+    return results;
+  }
+
+  /**
+   * Ma'lumotni yangilash (UPDATE)
    */
   async update(data: Partial<T>): Promise<T[]> {
     this.validateTable();
@@ -82,7 +166,6 @@ export class Builder<
       this._wheres,
     );
 
-    // Bindings tartibi: avval SET qiymatlari, keyin WHERE qiymatlari
     const results = await this.driver.execute<T>(sql, [
       ...values,
       ...this._bindings,
@@ -92,7 +175,7 @@ export class Builder<
   }
 
   /**
-   *  (DELETE)
+   * Ma'lumotni o'chirish (DELETE)
    */
   async delete(): Promise<void> {
     this.validateTable();
@@ -102,7 +185,7 @@ export class Builder<
   }
 
   /**
-   * Ichki yordamchi metodlar
+   * Yordamchi metodlar
    */
   private validateTable(): void {
     if (!this._table)
@@ -119,8 +202,21 @@ export class Builder<
     return ` WHERE ${conditions.join(" AND ")}`;
   }
 
+  private compileOrders(): string {
+    if (this._orders.length === 0) return "";
+    const orders = this._orders.map(
+      (o) => `${String(o.column)} ${o.direction.toUpperCase()}`,
+    );
+    return ` ORDER BY ${orders.join(", ")}`;
+  }
+
   private reset(): void {
     this._wheres = [];
     this._bindings = [];
+    this._columns = ["*"];
+    this._limit = null;
+    this._offset = null;
+    this._orders = [];
+    this._distinct = false;
   }
 }
