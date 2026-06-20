@@ -265,7 +265,6 @@ const driver = new PostgresDriver({
 ZippyDB uses **parameterized queries** by default - SQL injection safe.
 
 ```typescript
-// ✅ SAFE - Automatically parameterized
 const user = await db.table<User>("users").where("email", "=", email).first();
 ```
 
